@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Notes - NoteShare{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="notes-section">
+        <h1>📚 Your Notes</h1>
+
+        <!-- Search and Filter -->
+        <div class="search-filter">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="🔍 Search notes by title or description..." class="search-input">
+            </div>
+
+            <div class="filter-bar">
+                <select id="subjectFilter" class="filter-select">
+                    <option value="">📌 All Subjects</option>
+                    {% for subject in subjects %}
+                    <option value="{{ subject }}" {% if subject_filter == subject %}selected{% endif %}>
+                        {{ subject }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Notes Count -->
+        <div style="margin-bottom: 1.5rem; padding: 0.75rem; background: #f0f4ff; border-radius: 6px; border-left: 4px solid #667eea;">
+            <strong>{{ notes|length }}</strong> note(s) found
+        </div>
+
+        <!-- Notes Grid -->
+        {% if notes %}
+        <div class="notes-grid">
+            {% for note in notes %}
+            <div class="note-card" data-note-id="{{ note.id }}">
+                <div class="note-header">
+                    <h3>{{ note.title }}</h3>
+                    <span class="badge">{{ note.subject }}</span>
+                </div>
+
+                {% if note.description %}
+                <p class="note-description">{{ note.description[:100] }}{% if note.description|length > 100 %}...{% endif %}</p>
+                {% endif %}
+
+                <div class="note-meta">
+                    <span class="meta-item">
+                        <strong>📄 File:</strong> {{ note.filename }}
+                    </span>
+                    <span class="meta-item">
+                        <strong>💾 Size:</strong> {{ "%.2f"|format(note.file_size / 1024) }} KB
+                    </span>
+                    <span class="meta-item">
+                        <strong>📅 Uploaded:</strong> {{ note.uploaded_at[:10] }}
+                    </span>
+                </div>
+
+                <div class="note-actions">
+                    <a href="{{ url_for('view_note', note_id=note.id) }}" class="btn btn-small btn-info">📖 View</a>
+                    <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn btn-small btn-success">⬇️ Download</a>
+                    <button class="btn btn-small btn-danger" onclick="deleteNote({{ note.id }})">🗑️ Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h2>📭 No Notes Found</h2>
+            <p>{% if search_filter or subject_filter %}No notes match your search.{% else %}Start by uploading a note from the dashboard.{% endif %}</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+        {% endif %}
+
+        <!-- Subjects Section -->
+        {% if subjects %}
+        <div class="subjects-section">
+            <h2>📥 Download by Subject</h2>
+            <p style="color: #718096; margin-bottom: 1.5rem;">Download all notes for a specific subject as a ZIP file</p>
+            <div class="subjects-grid">
+                {% for subject in subjects %}
+                <div class="subject-card">
+                    <h3>{{ subject }}</h3>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 1rem;">Download all</p>
+                    <a href="{{ url_for('download_subject', subject=subject) }}" class="btn btn-primary" style="background: white; color: #667eea;">
+                        📦 Download All
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const subjectFilter = document.getElementById('subjectFilter');
+
+    // Search functionality
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const noteCards = document.querySelectorAll('.note-card');
+        let visibleCount = 0;
+
+        noteCards.forEach(card => {
+            const title = card.querySelector('h3').textContent.toLowerCase();
+            const subject = card.querySelector('.badge').textContent.toLowerCase();
+            const description = card.querySelector('.note-description')?.textContent.toLowerCase() || '';
+            const fileName = card.querySelector('.note-meta')?.textContent.toLowerCase() || '';
+
+            const matches = title.includes(query) || subject.includes(query) || description.includes(query) || fileName.includes(query);
+            card.style.display = matches ? 'block' : 'none';
+            if (matches) visibleCount++;
+        });
+
+        // Update count
+        const countDiv = document.querySelector('div[style*="background: #f0f4ff"]');
+        if (countDiv) {
+            countDiv.innerHTML = `<strong>${visibleCount}</strong> note(s) found`;
+        }
+    });
+
+    // Filter by subject
+    subjectFilter.addEventListener('change', (e) => {
+        const subject = e.target.value;
+        const url = new URL(window.location);
+        if (subject) {
+            url.searchParams.set('subject', subject);
+        } else {
+            url.searchParams.delete('subject');
+        }
+        window.location.href = url.toString();
+    });
+
+    // Delete note
+    async function deleteNote(noteId) {
+        if (confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+            try {
+                const response = await fetch(`{{ url_for('delete_note', note_id=0) }}`.replace('0', noteId), {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('✓ Note deleted successfully');
+                    location.reload();
+                } else {
+                    alert('✗ Failed to delete note');
+                }
+            } catch (error) {
+                alert('✗ Error deleting note: ' + error.message);
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Note Sharing App{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if 'user_id' in session %}
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <a href="{{ url_for('dashboard') }}" class="logo">📝 NoteShare</a>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a></li>
+                <li><a href="{{ url_for('notes') }}" class="nav-link">Notes</a></li>
+                <li><a href="{{ url_for('logout') }}" class="nav-link logout">Logout ({{ session.username }})</a></li>
+            </ul>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2024 NoteShare App. All rights reserved.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

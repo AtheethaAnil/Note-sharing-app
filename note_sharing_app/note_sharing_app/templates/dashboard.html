@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NoteShare{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="dashboard">
+        <h1>Welcome, {{ session.username }}! 👋</h1>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📄</div>
+                <div class="stat-info">
+                    <h3 id="statNotes">{{ stats.total_notes }}</h3>
+                    <p>Total Notes</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-info">
+                    <h3 id="statSize">{{ stats.total_size }} MB</h3>
+                    <p>Storage Used</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📚</div>
+                <div class="stat-info">
+                    <h3 id="statSubjects">{{ stats.total_subjects }}</h3>
+                    <p>Subjects</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <h2>📤 Upload a Note</h2>
+            
+            <div id="uploadMessage" class="message" style="display:none;"></div>
+            
+            <form id="uploadForm">
+                <div class="upload-area" id="uploadArea">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag and drop files here or click to browse</p>
+                    <input type="file" id="fileInput" style="display:none;">
+                </div>
+
+                <div class="upload-form">
+                    <div class="form-group">
+                        <label for="title">Note Title *</label>
+                        <input type="text" id="title" name="title" placeholder="Enter note title" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subject">Subject *</label>
+                        <input type="text" id="subject" name="subject" placeholder="e.g., Math, English, Project" required>
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="description">Description (Optional)</label>
+                        <textarea id="description" name="description" placeholder="Add notes or details..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" id="uploadBtn">📤 Upload File</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recent Notes -->
+        {% if recent_notes %}
+        <div class="recent-section">
+            <h2>📋 Recent Notes</h2>
+            <div class="notes-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentNotesBody">
+                        {% for note in recent_notes %}
+                        <tr>
+                            <td><strong>{{ note.title }}</strong></td>
+                            <td><span class="badge">{{ note.subject }}</span></td>
+                            <td>{{ "%.2f"|format(note.file_size / 1024) }} KB</td>
+                            <td>{{ note.uploaded_at[:10] }}</td>
+                            <td>
+                                <a href="{{ url_for('view_note', note_id=note.id) }}" class="btn-link">View</a> | 
+                                <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn-link">Download</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <a href="{{ url_for('notes') }}" class="btn btn-outline">View All Notes →</a>
+        </div>
+        {% else %}
+        <div class="empty-state" style="text-align: center; padding: 3rem; background: white; border-radius: 12px; margin-top: 2rem;">
+            <p style="font-size: 1.125rem; color: #718096; margin-bottom: 1rem;">No notes yet. Upload your first note above! 📝</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadMessage = document.getElementById('uploadMessage');
+    const titleInput = document.getElementById('title');
+    const subjectInput = document.getElementById('subject');
+    const descriptionInput = document.getElementById('description');
+
+    // Handle file selection
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    // Drag and drop events
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.borderColor = '#667eea';
+        uploadArea.style.backgroundColor = '#f0f4ff';
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.borderColor = '#e0e0e0';
+        uploadArea.style.backgroundColor = '#f9f9f9';
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.style.borderColor = '#e0e0e0';
+        uploadArea.style.backgroundColor = '#f9f9f9';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileName();
+        }
+    });
+
+    // Update filename display
+    fileInput.addEventListener('change', updateFileName);
+
+    function updateFileName() {
+        if (fileInput.files.length > 0) {
+            uploadArea.innerHTML = `<p>✓ File selected: <strong>${fileInput.files[0].name}</strong></p>`;
+        }
+    }
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const file = fileInput.files[0];
+        const title = titleInput.value.trim();
+        const subject = subjectInput.value.trim();
+        const description = descriptionInput.value.trim();
+
+        if (!file) {
+            showMessage('Please select a file', 'error');
+            return;
+        }
+
+        if (!title || !subject) {
+            showMessage('Please fill in title and subject', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', title);
+        formData.append('subject', subject);
+        formData.append('description', description);
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '⏳ Uploading...';
+
+        try {
+            const response = await fetch('{{ url_for("upload_note") }}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showMessage('✅ ' + data.message + ' Refreshing...', 'success');
+                
+                // Reset form
+                uploadForm.reset();
+                fileInput.value = '';
+                uploadArea.innerHTML = `
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag and drop files here or click to browse</p>
+                `;
+                uploadArea.style.borderColor = '#e0e0e0';
+                uploadArea.style.backgroundColor = '#f9f9f9';
+                
+                // Reload after 2 seconds
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showMessage('❌ Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showMessage('❌ Upload failed: ' + error.message, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '📤 Upload File';
+        }
+    });
+
+    function showMessage(msg, type) {
+        uploadMessage.textContent = msg;
+        uploadMessage.className = 'message ' + (type === 'error' ? 'message-error' : 'message-success');
+        uploadMessage.style.display = 'block';
+        
+        if (type === 'success') {
+            setTimeout(() => {
+                uploadMessage.style.display = 'none';
+            }, 3000);
+        }
+    }
+</script>
+{% endblock %}

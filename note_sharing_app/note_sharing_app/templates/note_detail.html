@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} - NoteShare{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="note-detail">
+        <div class="note-header-detail">
+            <h1>{{ note.title }}</h1>
+            <span class="badge badge-large">{{ note.subject }}</span>
+        </div>
+
+        <div class="note-meta-detail">
+            <div class="meta-item-detail">
+                <strong>📄 File:</strong> {{ note.filename }}
+            </div>
+            <div class="meta-item-detail">
+                <strong>💾 Size:</strong> {{ "%.2f"|format(note.file_size / 1024) }} KB
+            </div>
+            <div class="meta-item-detail">
+                <strong>📅 Uploaded:</strong> {{ note.uploaded_at }}
+            </div>
+        </div>
+
+        {% if note.description %}
+        <div class="note-description-detail">
+            <h3>Description</h3>
+            <p>{{ note.description }}</p>
+        </div>
+        {% endif %}
+
+        <div class="note-actions-detail">
+            <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn btn-primary btn-large">
+                ⬇️ Download File
+            </a>
+            <button onclick="deleteNote()" class="btn btn-danger btn-large">
+                🗑️ Delete Note
+            </button>
+            <a href="{{ url_for('notes') }}" class="btn btn-outline btn-large">
+                ← Back to Notes
+            </a>
+        </div>
+    </section>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function deleteNote() {
+        if (confirm('Are you sure you want to delete this note?')) {
+            try {
+                const response = await fetch('{{ url_for("delete_note", note_id=note.id) }}', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('✓ Note deleted successfully');
+                    window.location.href = '{{ url_for("notes") }}';
+                } else {
+                    alert('✗ Failed to delete note');
+                }
+            } catch (error) {
+                alert('✗ Error deleting note: ' + error.message);
+            }
+        }
+    }
+</script>
+{% endblock %}
